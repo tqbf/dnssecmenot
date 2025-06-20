@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
-	"log"
+	"database/sql"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -10,26 +12,59 @@ import (
 )
 
 func main() {
+	h := slog.NewTextHandler(os.Stderr, nil)
+	slog.SetDefault(slog.New(h))
 	db, err := openDB()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("open db", "err", err)
+		os.Exit(1)
 	}
 	defer db.Close()
+	if err := maybeSeedDomains(db); err != nil {
+		slog.Error("seed", "err", err)
+		os.Exit(1)
+	}
 
 	address := getEnv("ADDRESS", ":8080")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", helloHandler)
 	mux.HandleFunc("/lookup/", lookupHandler)
+	mux.Handle("/top", topHandler(db))
 
-	log.Printf("listening on %s", address)
+	slog.Info("listening", "addr", address)
 	if err := http.ListenAndServe(address, mux); err != nil {
-		log.Fatal(err)
+		slog.Error("serve", "err", err)
+		os.Exit(1)
 	}
 }
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("dnssecmenot"))
+}
+
+func topHandler(db *sql.DB) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.Query(
+			"SELECT name FROM domains ORDER BY rank LIMIT 500",
+		)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			fmt.Fprintf(w, "%s\n", name)
+		}
+		if err := rows.Err(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	})
 }
 
 func lookupHandler(w http.ResponseWriter, r *http.Request) {
