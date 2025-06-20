@@ -3,15 +3,24 @@ package main
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/miekg/dns"
 )
 
 func main() {
+	checkTop := flag.Bool(
+		"check-top",
+		false,
+		"check DS for top 1000 then exit",
+	)
+	flag.Parse()
+
 	h := slog.NewTextHandler(os.Stderr, nil)
 	slog.SetDefault(slog.New(h))
 	db, err := openDB()
@@ -23,6 +32,13 @@ func main() {
 	if err := maybeSeedDomains(db); err != nil {
 		slog.Error("seed", "err", err)
 		os.Exit(1)
+	}
+	if *checkTop {
+		if err := checkTopDomains(context.Background(), db); err != nil {
+			slog.Error("check top", "err", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	address := getEnv("ADDRESS", ":8080")
@@ -106,4 +122,58 @@ func getEnv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func checkTopDomains(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(
+		ctx,
+		"SELECT id, name FROM domains ORDER BY rank LIMIT 1000",
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for rows.Next() {
+		var (
+			id   int64
+			name string
+		)
+		if err := rows.Scan(&id, &name); err != nil {
+			return err
+		}
+		<-ticker.C
+		slog.Info("checking", "domain", name)
+		rrs, err := lookupDS(ctx, name)
+		has := err == nil && len(rrs) > 0
+		msg := ""
+		if err != nil {
+			msg = err.Error()
+		}
+		if err := insertCheck(db, id, has, msg); err != nil {
+			return err
+		}
+		slog.Info(
+			"checked",
+			"domain",
+			name,
+			"records",
+			len(rrs),
+			"error",
+			msg,
+		)
+	}
+	return rows.Err()
+}
+
+func insertCheck(db *sql.DB, id int64, ok bool, errMsg string) error {
+	_, err := db.Exec(
+		`INSERT INTO dns_checks(domain_id, has_dnssec, error)
+                VALUES(?, ?, ?)`,
+		id,
+		ok,
+		errMsg,
+	)
+	return err
 }
