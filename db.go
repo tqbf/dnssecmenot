@@ -3,10 +3,14 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -73,6 +77,56 @@ func applyMigrations(db *sql.DB) error {
 		if _, err := db.Exec(`INSERT INTO schema_migrations(version) VALUES (?)`, version); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+func maybeSeedDomains(db *sql.DB) error {
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM domains").Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	path := getEnv("DOMAINS_CSV", "tranco-5000.csv")
+	file, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open csv %s: %w", path, err)
+	}
+	defer file.Close()
+	r := csv.NewReader(file)
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare("INSERT INTO domains(name, rank) VALUES(?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for {
+		rec, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if len(rec) < 2 {
+			continue
+		}
+		rank, err := strconv.Atoi(strings.TrimSpace(rec[0]))
+		if err != nil {
+			return err
+		}
+		name := strings.TrimSpace(rec[1])
+		if _, err := stmt.Exec(name, rank); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
 	}
 	return nil
 }
