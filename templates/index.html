@@ -1,0 +1,37 @@
+{{ define "index" }}
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>dnssecme-not</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@^3/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="p-4">
+  <h1 class="text-2xl mb-4">DNSSEC Status</h1>
+  <div class="grid grid-cols-4 gap-2 font-bold border-b pb-2">
+    <div>Rank</div>
+    <div>Domain</div>
+    <div>Status</div>
+    <div>Checked</div>
+  </div>
+  {{ range .Domains }}
+  <div class="grid grid-cols-4 gap-2 border-b py-2">
+    <div>{{ .Rank }}</div>
+    <div>{{ .Name }}</div>
+    <div class="{{ if .HasDNSSEC }}text-green-600{{ else }}text-red-600{{ end }}">
+      {{ if .HasDNSSEC }}Enabled{{ else }}Disabled{{ end }}
+    </div>
+    <div>{{ .CheckedAt }}</div>
+  </div>
+  {{ end }}
+  <div class="flex justify-between mt-4">
+    {{ if .PrevPage }}
+    <a href="/?page={{ .PrevPage }}" class="text-blue-700">Previous</a>
+    {{ else }}<span></span>{{ end }}
+    {{ if .NextPage }}
+    <a href="/?page={{ .NextPage }}" class="text-blue-700">Next</a>
+    {{ end }}
+  </div>
+</body>
+</html>
+{{ end }}
