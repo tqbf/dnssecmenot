@@ -65,8 +65,8 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [x] Add `.gitignore`, `.env.example`, and basic folder layout
 
 ### Data Ingestion
-- [ ] Download/parse Tranco top domains CSV
-- [ ] Upsert domain list into SQLite (`domains` table)
+- [x] Download/parse Tranco top domains CSV
+- [x] Upsert domain list into SQLite (`domains` table)
 - [x] Figure out how to do this as a migration/fixture process, rather than on every boot.
 - [x] Take the SQLite database path from an env var.
 
@@ -83,8 +83,8 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [ ] Define routes/views for:
   - List of domains and their latest DNSSEC status
   - Detail view / filtering
-- [ ] Integrate Tailwind CSS workflow (build or CDN)
-- [ ] Build minimal HTML templates (no JavaScript)
+- [x] Integrate Tailwind CSS workflow (build or CDN)
+- [x] Build minimal HTML templates (no JavaScript)
 
 ### Configuration & Env
 - [x] Add `.env` support for settings (server address)
@@ -125,3 +125,10 @@ DNS_BURST=10
 CONCURRENT_WORKERS=10
 ```
 
+
+## Frontend Design Plan
+
+The index view uses Tailwind CSS from the CDN. A grid with four columns shows
+rank, domain, DNSSEC status and the last check time. About fifty rows render per
+page with `page` as a query parameter. Status text is colored green or red. The
+layout is responsive and relies on no JavaScript.
