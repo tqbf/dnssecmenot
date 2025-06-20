@@ -5,6 +5,7 @@ This project tracks DNSSEC adoption among the top domains. It is currently under
 ## Development
 
 1. Copy `.env.example` to `.env` and tweak settings as needed.
+   The database file location can be changed via the `DB_PATH` variable.
 2. Run the server:
 
 ```bash

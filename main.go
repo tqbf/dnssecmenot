@@ -6,13 +6,15 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/joho/godotenv"
 	"github.com/miekg/dns"
 )
 
 func main() {
-	// Load optional .env file for local development
-	_ = godotenv.Load()
+	db, err := openDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
 	address := getEnv("ADDRESS", ":8080")
 

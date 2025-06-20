@@ -67,11 +67,11 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 ### Data Ingestion
 - [ ] Download/parse Tranco top domains CSV
 - [ ] Upsert domain list into SQLite (`domains` table)
-- [ ] Figure out how to do this as a migration/fixture process, rather than on every boot.
-- [ ] Take the SQLite database path from an env var. 
+- [x] Figure out how to do this as a migration/fixture process, rather than on every boot.
+- [x] Take the SQLite database path from an env var.
 
 ### DNS Checking
-- [ ] Design DB schema: `domains`, `dns_checks` tables
+- [x] Design DB schema: `domains`, `dns_checks` tables
 - [ ] Implement rate-limited DS record lookup (using `miekg/dns` + `rate.Limiter`)
 - [ ] Randomly select from names in the top list to re-check based on when the last check was.
 - [ ] Write background scheduler (`gocron`) for periodic checks
