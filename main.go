@@ -1,20 +1,26 @@
 package main
 
 import (
-	"context"
-	"log"
-	"net/http"
-	"os"
+        "context"
+        "log"
+        "net/http"
+        "os"
 
-	"github.com/joho/godotenv"
-	"github.com/miekg/dns"
+        "github.com/joho/godotenv"
+        "github.com/miekg/dns"
 )
 
 func main() {
-	// Load optional .env file for local development
-	_ = godotenv.Load()
+        // Load optional .env file for local development
+        _ = godotenv.Load()
 
-	address := getEnv("ADDRESS", ":8080")
+        db, err := openDB()
+        if err != nil {
+                log.Fatal(err)
+        }
+        defer db.Close()
+
+        address := getEnv("ADDRESS", ":8080")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", helloHandler)
