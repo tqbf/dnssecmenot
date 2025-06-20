@@ -16,7 +16,7 @@ import (
 var migrationFiles embed.FS
 
 func openDB() (*sql.DB, error) {
-	path := getEnv("DB_PATH", "./dnssec.db")
+	path := getEnv("DB_PATH", "/data/app.db")
 	dsn := fmt.Sprintf("%s?_txlock=immediate", path)
 	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
