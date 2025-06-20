@@ -1,0 +1,21 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Testing
+coverage.out
+
+# Environment
+.env
+
+# Databases
+*.db
+
+# Build directories
+bin/
+

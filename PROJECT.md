@@ -51,7 +51,7 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - **Go Modules** (`go.mod`) for dependency management
 - **DNS lookups**: `github.com/miekg/dns`
 - **SQLite driver**: `github.com/mattn/go-sqlite3`
-- **HTTP routing**: `github.com/go-chi/chi` (or `gorilla/mux`)
+ - **HTTP routing**: built-in `net/http` mux
 - **Scheduler**: `github.com/go-co-op/gocron`
 - **Rate limiter**: `golang.org/x/time/rate`
 - **Tailwind CSS** for styling (via `tailwindcss` CLI or embedded CDN)
@@ -62,7 +62,7 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 
 ### Initialization
 - [x] Initialize Go module (`go mod init`)
-- [ ] Add `.gitignore`, `.env.example`, and basic folder layout
+- [x] Add `.gitignore`, `.env.example`, and basic folder layout
 
 ### Data Ingestion
 - [ ] Download/parse Tranco top domains CSV
@@ -79,7 +79,7 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [ ] Add a command-line one-time check that updates the whole list interactively.
 
 ### Web Server & Frontend
-- [ ] Implement HTTP server with `chi`
+- [x] Implement HTTP server using `net/http`
 - [ ] Define routes/views for:
   - List of domains and their latest DNSSEC status
   - Detail view / filtering
@@ -87,11 +87,8 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [ ] Build minimal HTML templates (no JavaScript)
 
 ### Configuration & Env
-- [ ] Add `.env` support for settings:
-  - DNS query rate limits
-  - Scheduler interval
-  - DB file path
-- [ ] Create and document sane defaults for these in the code.
+- [x] Add `.env` support for settings (server address)
+- [x] Create and document sane defaults in the code.
 
 ### Tests & Quality
 - [ ] Unit tests for any actual logic we write (but don't mock DNS or the network)
