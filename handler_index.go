@@ -2,15 +2,18 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type domainRow struct {
-	Rank      int
-	Name      string
-	HasDNSSEC bool
-	CheckedAt string
+	Rank       int
+	Name       string
+	HasDNSSEC  bool
+	CheckedAt  string
+	CheckedAgo string
 }
 
 func indexHandler(db *sql.DB) http.Handler {
@@ -24,6 +27,7 @@ func indexHandler(db *sql.DB) http.Handler {
 		}
 		const perPage = 50
 		offset := (page - 1) * perPage
+		now := time.Now()
 		rows, err := db.Query(
 			`SELECT d.rank, d.name, c.has_dnssec, c.checked_at
                          FROM domains d
@@ -53,6 +57,7 @@ func indexHandler(db *sql.DB) http.Handler {
 			rec.HasDNSSEC = sec.Valid && sec.Bool
 			if checked.Valid {
 				rec.CheckedAt = checked.Time.Format("2006-01-02 15:04")
+				rec.CheckedAgo = relativeTime(now, checked.Time)
 			}
 			list = append(list, rec)
 		}
@@ -84,4 +89,31 @@ func indexHandler(db *sql.DB) http.Handler {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
+}
+
+func relativeTime(now, t time.Time) string {
+	if now.Year() == t.Year() && now.YearDay() == t.YearDay() {
+		d := now.Sub(t)
+		if d < time.Hour {
+			m := int(d.Minutes())
+			if m == 1 {
+				return "1 minute ago"
+			}
+			return fmt.Sprintf("%d minutes ago", m)
+		}
+		h := int(d.Hours())
+		if h == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", h)
+	}
+	y := now.AddDate(0, 0, -1)
+	if y.Year() == t.Year() && y.YearDay() == t.YearDay() {
+		return "yesterday"
+	}
+	days := int(now.Sub(t).Hours() / 24)
+	if days == 1 {
+		return "1 day ago"
+	}
+	return fmt.Sprintf("%d days ago", days)
 }
