@@ -131,9 +131,7 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 		has = len(records) > 0
 	}
 
-	// TODO: cap this boundlessly growing list of checks; i do want
-	// the list so i can do features like "when something changed",
-	// so probably instead of a cap i'm just going to not update
+	// i'm just going to not update
 	// if nothing changes (just update the last check's timestamp)
 	var (
 		lastID  int
