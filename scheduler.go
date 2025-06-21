@@ -135,9 +135,49 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 	// the list so i can do features like "when something changed",
 	// so probably instead of a cap i'm just going to not update
 	// if nothing changes (just update the last check's timestamp)
+	var (
+		lastID  int
+		lastHas sql.NullBool
+		lastErr sql.NullString
+	)
+	err = db.QueryRowContext(ctx,
+		`SELECT id, has_dnssec, error
+                FROM dns_checks
+                WHERE domain_id = ?
+                ORDER BY checked_at DESC
+                LIMIT 1`,
+		id,
+	).Scan(&lastID, &lastHas, &lastErr)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	var sameErr bool
+	if lastErr.Valid {
+		sameErr = lastErr.String == errStr
+	} else {
+		sameErr = errStr == ""
+	}
+
+	sameResult := err == nil &&
+		lastHas.Valid &&
+		lastHas.Bool == has &&
+		sameErr
+
+	if sameResult {
+		_, err = db.ExecContext(ctx,
+			`UPDATE dns_checks
+	 SET checked_at = CURRENT_TIMESTAMP
+	 WHERE id = ?`,
+			lastID,
+		)
+		return err
+	}
+
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO dns_checks(domain_id, has_dnssec, error)
                 VALUES(?, ?, ?)`,
-		id, has, errStr)
+		id, has, errStr,
+	)
 	return err
 }
