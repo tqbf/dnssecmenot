@@ -8,6 +8,11 @@
 </head>
 <body class="p-4">
   <h1 class="text-2xl mb-4">DNSSEC Status</h1>
+  <div class="mb-4 grid grid-cols-3 gap-4">
+    <div>Top 1000: {{ printf "%.1f" .Pct1000 }}%</div>
+    <div>Top 500: {{ printf "%.1f" .Pct500 }}%</div>
+    <div>Top 100: {{ printf "%.1f" .Pct100 }}%</div>
+  </div>
   <div class="grid grid-cols-4 gap-2 font-bold border-b pb-2">
     <div>Rank</div>
     <div>Domain</div>
