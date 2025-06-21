@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"html/template"
 	"log/slog"
 	"net/http"
-	"context"
 	"os"
+
+	"github.com/miekg/dns"
 )
 
 //go:embed templates/*.html
@@ -43,8 +45,6 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", indexHandler(db))
-	mux.HandleFunc("/lookup/", lookupHandler)
-	mux.Handle("/top", topHandler(db))
 	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 
 	slog.Info("listening", "addr", address)
@@ -59,4 +59,16 @@ func getEnv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func lookupDS(ctx context.Context, domain string) ([]dns.RR, error) {
+	m := new(dns.Msg)
+	m.SetQuestion(dns.Fqdn(domain), dns.TypeDS)
+
+	c := new(dns.Client)
+	r, _, err := c.ExchangeContext(ctx, m, "8.8.8.8:53")
+	if err != nil {
+		return nil, err
+	}
+	return r.Answer, nil
 }

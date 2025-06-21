@@ -21,4 +21,3 @@ npm run build:css
 go run .
 ```
 
-Then visit `http://localhost:8080/lookup/example.com` to perform a test DNS lookup.
