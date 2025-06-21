@@ -6,7 +6,14 @@ This project tracks DNSSEC adoption among the top domains. It is currently under
 
 1. Copy `.env.example` to `.env` and tweak settings as needed.
    The database file location can be changed via the `DB_PATH` variable.
-2. Run the server:
+2. Install frontend dependencies and build the CSS:
+
+```bash
+npm install
+npm run build:css
+```
+
+3. Run the server:
 
 ```bash
 go run .

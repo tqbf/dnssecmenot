@@ -19,3 +19,4 @@ coverage.out
 # Build directories
 bin/
 
+node_modules/
