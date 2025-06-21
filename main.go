@@ -38,8 +38,7 @@ func main() {
 	mux.Handle("/", indexHandler(db))
 	mux.HandleFunc("/lookup/", lookupHandler)
 	mux.Handle("/top", topHandler(db))
-	fs := http.FileServer(http.FS(staticFS))
-	mux.Handle("/static/", http.StripPrefix("/static/", fs))
+	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 
 	slog.Info("listening", "addr", address)
 	if err := http.ListenAndServe(address, mux); err != nil {
