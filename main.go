@@ -11,6 +11,9 @@ import (
 //go:embed templates/*.html
 var templatesFS embed.FS
 
+//go:embed static/*.css
+var staticFS embed.FS
+
 var templates = template.Must(
 	template.ParseFS(templatesFS, "templates/*.html"),
 )
@@ -35,6 +38,7 @@ func main() {
 	mux.Handle("/", indexHandler(db))
 	mux.HandleFunc("/lookup/", lookupHandler)
 	mux.Handle("/top", topHandler(db))
+	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 
 	slog.Info("listening", "addr", address)
 	if err := http.ListenAndServe(address, mux); err != nil {
