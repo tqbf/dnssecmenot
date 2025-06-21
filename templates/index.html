@@ -18,7 +18,7 @@
   <div class="grid grid-cols-4 gap-2 border-b py-2">
     <div>{{ .Rank }}</div>
     <div>{{ .Name }}</div>
-    <div class="{{ if .HasDNSSEC }}text-green-600{{ else }}text-red-600{{ end }}">
+    <div class="{{ if .HasDNSSEC }}text-red-600 font-bold{{ else }}text-green-200{{ end }}">
       {{ if .HasDNSSEC }}Enabled{{ else }}Disabled{{ end }}
     </div>
     <div>{{ .CheckedAt }}</div>
