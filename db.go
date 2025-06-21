@@ -80,6 +80,7 @@ func applyMigrations(db *sql.DB) error {
 	}
 	return nil
 }
+
 func maybeSeedDomains(db *sql.DB) error {
 	var count int
 	if err := db.QueryRow("SELECT COUNT(*) FROM domains").Scan(&count); err != nil {
