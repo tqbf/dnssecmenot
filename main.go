@@ -18,7 +18,9 @@ var templatesFS embed.FS
 var staticFS embed.FS
 
 var templates = template.Must(
-	template.ParseFS(templatesFS, "templates/*.html"),
+	template.New("").Funcs(template.FuncMap{
+		"relativeTime": relativeTime,
+	}).ParseFS(templatesFS, "templates/*.html"),
 )
 
 func main() {

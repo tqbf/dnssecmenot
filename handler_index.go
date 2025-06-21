@@ -4,13 +4,15 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type domainRow struct {
-	Rank      int
-	Name      string
-	HasDNSSEC bool
-	CheckedAt string
+	Rank          int
+	Name          string
+	HasDNSSEC     bool
+	CheckedAt     string
+	CheckedAtTime time.Time
 }
 
 func indexHandler(db *sql.DB) http.Handler {
@@ -52,6 +54,7 @@ func indexHandler(db *sql.DB) http.Handler {
 			}
 			rec.HasDNSSEC = sec.Valid && sec.Bool
 			if checked.Valid {
+				rec.CheckedAtTime = checked.Time
 				rec.CheckedAt = checked.Time.Format("2006-01-02 15:04")
 			}
 			list = append(list, rec)
