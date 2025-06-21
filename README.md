@@ -1,6 +1,8 @@
 # dnssecmenot
 
-This project tracks DNSSEC adoption among the top domains. It is currently under heavy development.
+I'm tired of telling people how to write a Bash `for` loop around `dig ds`. 
+
+This project tracks DNSSEC adoption among the Tranco research list top 1000 domains.
 
 ## Development
 
