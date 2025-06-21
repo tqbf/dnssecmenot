@@ -3,41 +3,50 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"time"
 )
 
 func startScheduler(ctx context.Context, db *sql.DB) error {
-	var count int
+	var (
+		count  int
+		durStr = getEnv("CHECK_INTERVAL", "") // see below
+		d      time.Duration
+	)
+
 	if err := db.QueryRow(
 		"SELECT COUNT(*) FROM domains",
 	).Scan(&count); err != nil {
-		return err
+		return fmt.Errorf("count zones: %w", err)
 	}
 	if count == 0 {
-		return nil
+		return fmt.Errorf("no zones in db")
 	}
-	rand.Seed(time.Now().UnixNano())
-	durStr := getEnv("CHECK_INTERVAL", "")
-	var d time.Duration
+
+	// by default, scale to zones over a whole day of probes
+	d = time.Duration(int64(24*time.Hour) / int64(count))
+
+	// probably don't want to set this
 	if durStr != "" {
 		if v, err := time.ParseDuration(durStr); err == nil {
 			d = v
 		}
 	}
-	if d == 0 {
-		d = time.Duration(int64(24*time.Hour) / int64(count))
-	}
+
+	// don't piss off 8.8.8.8
 	if d <= 0 {
 		d = time.Minute
 	}
-	t := time.NewTicker(d)
-	go schedulerLoop(ctx, db, t)
+
+	go schedulerLoop(ctx, db, d)
 	return nil
 }
 
-func schedulerLoop(ctx context.Context, db *sql.DB, t *time.Ticker) {
+func schedulerLoop(ctx context.Context, db *sql.DB, interval time.Duration) {
+	t := time.NewTicker(interval)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -57,6 +66,10 @@ func schedulerLoop(ctx context.Context, db *sql.DB, t *time.Ticker) {
 }
 
 func nextDomain(ctx context.Context, db *sql.DB) (int, string, error) {
+	// subquery c: for each domain in dns_checks, get the most recent checked_at timestamp
+	// join w/ domains on domain_id, left join to incl. zones w/ no checks
+	// take 5, sorted by tranco rank, so we have some jitter and don't get stuck
+	// on wacky corner cases
 	rows, err := db.QueryContext(ctx,
 		`SELECT d.id, d.name
                 FROM domains d
@@ -70,14 +83,19 @@ func nextDomain(ctx context.Context, db *sql.DB) (int, string, error) {
                          d.rank ASC
                 LIMIT 5`)
 	if err != nil {
-		return 0, "", err
+		return 0, "", fmt.Errorf("query next zones: %w", err)
 	}
 	defer rows.Close()
-	var ids []int
-	var names []string
+
+	var (
+		ids   []int
+		names []string
+	)
 	for rows.Next() {
-		var id int
-		var name string
+		var (
+			id   int
+			name string
+		)
 		if err := rows.Scan(&id, &name); err != nil {
 			return 0, "", err
 		}
@@ -88,21 +106,33 @@ func nextDomain(ctx context.Context, db *sql.DB) (int, string, error) {
 		return 0, "", err
 	}
 	if len(ids) == 0 {
-		return 0, "", sql.ErrNoRows
+		return 0, "", fmt.Errorf("query: %w", sql.ErrNoRows)
 	}
+
+	// jitter
 	i := rand.Intn(len(ids))
 	return ids[i], names[i], nil
 }
 
 func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
+	var (
+		has    = false
+		errStr = ""
+	)
+
+	slog.Info("checking", "domain", name)
+
 	records, err := lookupDS(ctx, name)
-	has := false
-	errStr := ""
 	if err != nil {
 		errStr = err.Error()
 	} else {
 		has = len(records) > 0
 	}
+
+	// TODO: cap this boundlessly growing list of checks; i do want
+	// the list so i can do features like "when something changed",
+	// so probably instead of a cap i'm just going to not update
+	// if nothing changes (just update the last check's timestamp)
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO dns_checks(domain_id, has_dnssec, error)
                 VALUES(?, ?, ?)`,
