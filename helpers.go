@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -26,4 +27,20 @@ func relativeTime(t time.Time) string {
 		days := int(d.Hours() / 24)
 		return fmt.Sprintf("%d d ago", days)
 	}
+}
+
+func domainParts(name string) (string, string) {
+	i := strings.LastIndexByte(name, '.')
+	if i < 0 {
+		return name, ""
+	}
+	return name[:i], name[i+1:]
+}
+
+func isImportantTLD(tld string) bool {
+	switch tld {
+	case "mil", "gov", "eu":
+		return true
+	}
+	return false
 }
