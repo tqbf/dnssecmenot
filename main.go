@@ -24,6 +24,12 @@ func main() {
 		slog.Error("seed", "err", err)
 		os.Exit(1)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := startScheduler(ctx, db); err != nil {
+		slog.Error("scheduler", "err", err)
+		os.Exit(1)
+	}
 
 	address := getEnv("ADDRESS", ":8080")
 
