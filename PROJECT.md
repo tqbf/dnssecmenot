@@ -31,12 +31,12 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
                       v
   +------------+   +-----------------+    +--------------+
   |  Scheduler |-->| DNS Checker     |--->|  SQLite DB   |
-  |  (gocron)  |   | (miekg/dns + RL)|    +------+-------+
+  | (ticker)   |   | (miekg/dns + RL)|    +------+-------+
   +------------+   +-----------------+           |
                                                    v
                                             +--------------+
-                                            | HTTP Server  |
-                                            | (Go + chi)   |
+                                           | HTTP Server  |
+                                           | (net/http)   |
                                             +------+-------+
                                                    |
                                                    v
@@ -52,8 +52,7 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - **DNS lookups**: `github.com/miekg/dns`
 - **SQLite driver**: `github.com/mattn/go-sqlite3`
  - **HTTP routing**: built-in `net/http` mux
-- **Scheduler**: `github.com/go-co-op/gocron`
-- **Rate limiter**: `golang.org/x/time/rate`
+ - **Rate limiter**: `golang.org/x/time/rate`
 - **Tailwind CSS** for styling (via `tailwindcss` CLI or embedded CDN)
 - **go:embed** (builtin) for bundling static assets
 - **go-dotenv** (`github.com/joho/godotenv`) for `.env` config
@@ -72,17 +71,16 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 
 ### DNS Checking
 - [x] Design DB schema: `domains`, `dns_checks` tables
-- [ ] Implement rate-limited DS record lookup (using `miekg/dns` + `rate.Limiter`)
-- [ ] Randomly select from names in the top list to re-check based on when the last check was.
-- [ ] Write background scheduler (`gocron`) for periodic checks
+ - [ ] Implement rate-limited DS record lookup (using `miekg/dns` + `rate.Limiter`)
+ - [x] Randomly select from names in the top list to re-check based on when the last check was.
+ - [x] Write background scheduler (ticker) for periodic checks
 - [ ] Handle failures & retries (backoff, logging)
 - [ ] Add a command-line one-time check that updates the whole list interactively.
 
 ### Web Server & Frontend
 - [x] Implement HTTP server using `net/http`
-- [ ] Define routes/views for:
-  - List of domains and their latest DNSSEC status
-  - Detail view / filtering
+ - [x] Define route for listing domains and their latest DNSSEC status
+ - [ ] Add detail view and filtering
 - [x] Integrate Tailwind CSS workflow (build or CDN)
 - [x] Build minimal HTML templates (no JavaScript)
 
@@ -95,16 +93,15 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [ ] Linting (`golangci-lint`)
 
 ### CI/CD & Deployment
-- [ ] Dockerfile (slim image) for service
-- [ ] Deployment docs / `Makefile`
+ - [x] Dockerfile (slim image) for service
+ - [ ] Deployment docs / `Makefile`
 
 ## Continuous DNS Checking
 
-A scheduler (via `gocron`) will kick off a DNSSEC check job at a configurable interval (e.g., every 5 minutes). The job:
+A ticker based scheduler kicks off a DNSSEC check job at a configurable interval. The job:
 1. Reads the list of tracked domains from the DB.
-2. For each domain, enqueues a DS record lookup task.
-3. Worker pool performs lookups under a rate limiter.
-4. Persists timestamped results in `dns_checks`.
+2. Performs the DS record lookup sequentially.
+3. Persists timestamped results in `dns_checks`.
 
 Failed lookups (timeouts, network errors) are retried once with exponential backoff. If a domain consistently fails 3 times, it is marked for manual review.
 
@@ -118,7 +115,7 @@ To avoid overloading upstream DNS servers or triggering rate-based blocks:
 
 ```env
 # .env.example
-SCHEDULER_INTERVAL=1h
+CHECK_INTERVAL=1m
 DB_PATH=./dnssec.db
 DNS_RATE=100/m
 DNS_BURST=10
@@ -132,3 +129,9 @@ The index view uses Tailwind CSS from the CDN. A grid with four columns shows
 rank, domain, DNSSEC status and the last check time. About fifty rows render per
 page with `page` as a query parameter. Status text is colored green or red. The
 layout is responsive and relies on no JavaScript.
+
+## Deprecated Tasks
+
+- Replaced `gocron` with a simple time.Ticker based scheduler.
+- `SCHEDULER_INTERVAL` env var superseded by `CHECK_INTERVAL`.
+- The worker pool idea was dropped in favor of sequential checks.
