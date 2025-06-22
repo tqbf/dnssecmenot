@@ -71,19 +71,18 @@ func nextDomain(ctx context.Context, db *sql.DB) (int, string, error) {
 	// take 5, sorted by tranco rank, so we have some jitter and don't get stuck
 	// on wacky corner cases
 	rows, err := db.QueryContext(ctx, `
-		SELECT d.id, d.name
-		FROM domains d
-		LEFT JOIN (
-    		SELECT dc.domain_id,
-           	MAX(dc.checked_at) AS last_check
-            FROM dns_checks dc
-            JOIN domains d2 ON dc.domain_id = d2.id
-            WHERE d2.rank <= 1000
-            GROUP BY dc.domain_id
-        ) c ON d.id = c.domain_id
-        ORDER BY COALESCE(last_check, '1970-01-01') ASC,
-        d.rank ASC
-        LIMIT 5`)
+               SELECT d.id, d.name
+               FROM domains d
+               LEFT JOIN (
+               SELECT dc.domain_id,
+               MAX(dc.checked_at) AS last_check
+               FROM dns_checks dc
+               GROUP BY dc.domain_id
+       ) c ON d.id = c.domain_id
+       WHERE d.rank <= 1000
+       ORDER BY COALESCE(last_check, '1970-01-01') ASC,
+       d.rank ASC
+       LIMIT 5`)
 	if err != nil {
 		return 0, "", fmt.Errorf("query next zones: %w", err)
 	}
