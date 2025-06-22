@@ -11,6 +11,9 @@ import (
 type domainRow struct {
 	Rank          int
 	Name          string
+	Base          string
+	TLD           string
+	Important     bool
 	HasDNSSEC     bool
 	CheckedAt     string
 	CheckedAtTime time.Time
@@ -72,6 +75,8 @@ func indexHandler(db *sql.DB) http.Handler {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			rec.Base, rec.TLD = domainParts(rec.Name)
+			rec.Important = isImportantTLD(rec.TLD)
 			rec.HasDNSSEC = sec.Valid && sec.Bool
 			if checked.Valid {
 				rec.CheckedAtTime = checked.Time
