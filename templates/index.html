@@ -73,7 +73,6 @@
                     <th class="px-2 py-1 text-left w-12">#</th>
                     <th class="px-2 py-1 text-left">Domain</th>
                     <th class="px-2 py-1 text-left">Status</th>
-                    <th class="px-2 py-1 text-left">Checked</th>
                 </tr>
             </thead>
             <tbody>
@@ -95,10 +94,14 @@
                         {{ else }}
                         <span class="text-gray-400">disabled</span>
                         {{ end }}
-                    </td>
-                    <td class="px-2 py-1" title="{{ .CheckedAt }}">
-                        {{ if .CheckedAt }}{{ relativeTime .CheckedAtTime }}{{
-                        end }}
+                        <div
+                            class="text-xs text-gray-500"
+                            title="{{ .CheckedAt }}"
+                        >
+                            {{ if .CheckedAt }}
+                            {{ relativeTime .CheckedAtTime }}
+                            {{ end }}
+                        </div>
                     </td>
                 </tr>
                 {{ end }}
