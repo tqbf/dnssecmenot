@@ -5,6 +5,7 @@
         <meta charset="utf-8" />
         <title>dnssec-me-not: tracking DNSSEC adoption in top domains</title>
         <link href="/static/style.css" rel="stylesheet" />
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
     </head>
     <body class="p-4">
         <h1 class="text-2xl mb-2">DNSSEC Adoption In The Tranco Top 1000</h1>
@@ -40,12 +41,39 @@
             </div>
         </div>
 
-        <div class="sm:hidden space-y-2">
-            {{ range .Domains }}
-            <div class="bg-white p-3 rounded shadow">
-                <p class="text-sm">
-                    <span class="text-gray-500">#{{ .Rank }}</span>
-                    <span class="font-semibold">
+        <div id="mobile-list" class="sm:hidden space-y-2">
+            {{ template "rowsMobile" . }}
+        </div>
+
+        <table class="hidden sm:table w-full text-sm">
+            <thead class="bg-gray-100 sticky top-0">
+                <tr>
+                    <th class="px-2 py-1 text-left w-12">#</th>
+                    <th class="px-2 py-1 text-left">Domain</th>
+                    <th class="px-2 py-1 text-left">Status</th>
+                </tr>
+            </thead>
+            <tbody id="table-list">
+                {{ template "rowsTable" . }}
+            </tbody>
+        </table>
+        <div class="flex justify-between mt-4">
+            {{ if .PrevPage }}
+            <a href="/?page={{ .PrevPage }}" class="text-blue-700">Previous</a>
+            {{ else }}<span></span>{{ end }} {{ if .NextPage }}
+            <a href="/?page={{ .NextPage }}" class="text-blue-700">Next</a>
+            {{ end }}
+        </div>
+    </body>
+</html>
+{{ end }}
+
+{{ define "rowsMobile" }}
+    {{ range .Domains }}
+    <div class="bg-white p-3 rounded shadow">
+        <p class="text-sm">
+            <span class="text-gray-500">#{{ .Rank }}</span>
+            <span class="font-semibold">
                         {{ .Base }}<span
                             class="{{ if .Important }}text-red-600{{ else }}text-gray-400{{ end }}"
                             >.{{ .TLD }}</span
@@ -61,78 +89,72 @@
                         uncategorized
                     </span>
                     {{ end }}
-                </p>
-                <p class="text-xs text-gray-500">
-                    {{ if .HasDNSSEC }}
-                    <span
-                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600"
-                        >enabled</span
-                    >
-                    {{ else }}
-                    <span class="text-gray-400">disabled</span>
-                    {{ end }} &bull; {{ if .CheckedAt }}{{ relativeTime
-                    .CheckedAtTime }}{{ end }}
-                </p>
-            </div>
-            {{ end }}
-        </div>
+        </p>
+        <p class="text-xs text-gray-500">
+            {{ if .HasDNSSEC }}
+            <span
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600"
+                >enabled</span
+            >
+            {{ else }}
+            <span class="text-gray-400">disabled</span>
+            {{ end }} &bull; {{ if .CheckedAt }}{{ relativeTime
+            .CheckedAtTime }}{{ end }}
+        </p>
+    </div>
+    {{ end }}
+    {{ if .NextPage }}
+    <div id="more-mobile"
+        hx-get="/?page={{ .NextPage }}"
+        hx-trigger="revealed"
+        hx-swap="outerHTML"
+    ></div>
+    {{ end }}
+{{ end }}
 
-        <table class="hidden sm:table w-full text-sm">
-            <thead class="bg-gray-100 sticky top-0">
-                <tr>
-                    <th class="px-2 py-1 text-left w-12">#</th>
-                    <th class="px-2 py-1 text-left">Domain</th>
-                    <th class="px-2 py-1 text-left">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{ range .Domains }}
-                <tr class="even:bg-gray-50 hover:bg-gray-100">
-                    <td class="px-2 py-1 text-gray-500">#{{ .Rank }}</td>
-                    <td class="px-2 py-1 font-semibold">
-                        {{ .Base }}<span
-                            class="{{ if .Important }}text-red-600{{ else }}text-gray-400{{ end }}"
-                            >.{{ .TLD }}</span
-                        >
-                        {{ if .Class }}
-                        <span
-                            class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ classColor .Class }}"
-                            >{{ .Class }}</span
-                        >
-                        {{ else }}
-                        <span class="ml-2 text-xs text-gray-200"
-                            >(uncategorized)</span
-                        >
-                        {{ end }}
-                    </td>
-                    <td class="px-2 py-1">
-                        {{ if .HasDNSSEC }}
-                        <span
-                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600"
-                            >enabled</span
-                        >
-                        {{ else }}
-                        <span class="text-gray-400">disabled</span>
-                        {{ end }}
-                        <div
-                            class="text-xs text-gray-500"
-                            title="{{ .CheckedAt }}"
-                        >
-                            {{ if .CheckedAt }} {{ relativeTime .CheckedAtTime
-                            }} {{ end }}
-                        </div>
-                    </td>
-                </tr>
-                {{ end }}
-            </tbody>
-        </table>
-        <div class="flex justify-between mt-4">
-            {{ if .PrevPage }}
-            <a href="/?page={{ .PrevPage }}" class="text-blue-700">Previous</a>
-            {{ else }}<span></span>{{ end }} {{ if .NextPage }}
-            <a href="/?page={{ .NextPage }}" class="text-blue-700">Next</a>
+{{ define "rowsTable" }}
+    {{ range .Domains }}
+    <tr class="even:bg-gray-50 hover:bg-gray-100">
+        <td class="px-2 py-1 text-gray-500">#{{ .Rank }}</td>
+        <td class="px-2 py-1 font-semibold">
+            {{ .Base }}<span
+                class="{{ if .Important }}text-red-600{{ else }}text-gray-400{{ end }}"
+                >.{{ .TLD }}</span
+            >
+            {{ if .Class }}
+            <span
+                class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ classColor .Class }}"
+                >{{ .Class }}</span
+            >
+            {{ else }}
+            <span class="ml-2 text-xs text-gray-200">(uncategorized)</span>
             {{ end }}
-        </div>
-    </body>
-</html>
+        </td>
+        <td class="px-2 py-1">
+            {{ if .HasDNSSEC }}
+            <span
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600"
+                >enabled</span
+            >
+            {{ else }}
+            <span class="text-gray-400">disabled</span>
+            {{ end }}
+            <div
+                class="text-xs text-gray-500"
+                title="{{ .CheckedAt }}"
+            >
+                {{ if .CheckedAt }} {{ relativeTime .CheckedAtTime }} {{ end }}
+            </div>
+        </td>
+    </tr>
+    {{ end }}
+    {{ if .NextPage }}
+    <tr id="more-table"
+        hx-get="/?page={{ .NextPage }}"
+        hx-trigger="revealed"
+        hx-swap="outerHTML"
+    >
+        <td colspan="3"></td>
+    </tr>
+    {{ end }}
 {{ end }}

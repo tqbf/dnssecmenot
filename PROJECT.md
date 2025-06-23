@@ -1,6 +1,6 @@
 # dnssecme-not Project Plan
 
-This document outlines the comprehensive plan for **dnssecme-not**, a Go-based service that tracks DNSSEC adoption among the top domains, backed by SQLite and rendered via a simple Tailwind CSS frontend (no JavaScript).
+This document outlines the comprehensive plan for **dnssecme-not**, a Go-based service that tracks DNSSEC adoption among the top domains, backed by SQLite and rendered via a simple Tailwind CSS frontend with htmx for interactivity.
 
 ## Table of Contents
 1. [Project Overview](#project-overview)
@@ -56,6 +56,7 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - **Tailwind CSS** for styling (via `tailwindcss` CLI or embedded CDN)
 - **go:embed** (builtin) for bundling static assets
 - **go-dotenv** (`github.com/joho/godotenv`) for `.env` config
+- **htmx** via CDN for minimal dynamic behaviour
 
 ## Task Checklist
 
@@ -88,7 +89,7 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [ ] Add detail view and filtering
 - [x] Create a page showing when a domain's status changes
 - [x] Integrate Tailwind CSS workflow (build or CDN)
-- [x] Build minimal HTML templates (no JavaScript)
+- [x] Build minimal HTML templates (htmx only)
 - [ ] Come up with a qualitative color scheme (expressed in standard tailwind colors) for classes
 - [ ] Show the classification next to each domain in the list
 - [ ] Add filtering by classification on the index view
@@ -138,7 +139,7 @@ CONCURRENT_WORKERS=10
 The index view uses Tailwind CSS from the CDN. A grid with four columns shows
 rank, domain, DNSSEC status and the last check time. About fifty rows render per
 page with `page` as a query parameter. Status text is colored green or red. The
-layout is responsive and relies on no JavaScript.
+layout is responsive and uses htmx for infinite scroll.
 
 Another view lists moments when the DNSSEC status of a domain changes.
 It shows the domain name, the new state, and both absolute and relative

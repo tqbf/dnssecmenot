@@ -41,6 +41,8 @@ func dnssecRatio(ctx context.Context, db *sql.DB, limit int) (float64, error) {
 }
 
 func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
+	hx := r.Header.Get("HX-Request") == "true"
+	trigger := r.Header.Get("HX-Trigger")
 	page := 1
 	if p := r.URL.Query().Get("page"); p != "" {
 		i, err := strconv.Atoi(p)
@@ -68,19 +70,17 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
+  
+  // assemble the page data set
 	list := make([]domainRow, 0, perPage)
 	for rows.Next() {
-		var rec domainRow
-		var class sql.NullString
-		var sec sql.NullBool
-		var checked sql.NullTime
-		if err := rows.Scan(
-			&rec.Rank,
-			&rec.Name,
-			&class,
-			&sec,
-			&checked,
-		); err != nil {
+		var ( 
+      rec domainRow
+		  class sql.NullString
+		  sec sql.NullBool
+		  checked sql.NullTime
+    )
+		if err := rows.Scan(&rec.Rank, &rec.Name, &class, &sec, &checked); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -96,10 +96,12 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		list = append(list, rec)
 	}
+  
 	if err := rows.Err(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+  
 	hasNext := len(list) > perPage
 	if hasNext {
 		list = list[:perPage]
@@ -132,7 +134,17 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if hasNext {
 		data.NextPage = page + 1
 	}
-	err = templates.ExecuteTemplate(w, "index", data)
+
+	tpl := "index"
+	if hx {
+		if trigger == "more-table" {
+			tpl = "rowsTable"
+		} else if trigger == "more-mobile" {
+			tpl = "rowsMobile"
+		}
+	}
+  
+  err = templates.ExecuteTemplate(w, "index", data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
