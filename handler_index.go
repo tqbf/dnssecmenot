@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -106,7 +107,7 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 	p1000, err1 := dnssecRatio(r.Context(), srv.db, 1000)
 	p500, err2 := dnssecRatio(r.Context(), srv.db, 500)
 	p100, err3 := dnssecRatio(r.Context(), srv.db, 100)
-	if err1 != nil || err2 != nil || err3 != nil {
+	if err = errors.Join(err1, err2, err3); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
