@@ -70,16 +70,16 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-  
-  // assemble the page data set
+
+	// assemble the page data set
 	list := make([]domainRow, 0, perPage)
 	for rows.Next() {
-		var ( 
-      rec domainRow
-		  class sql.NullString
-		  sec sql.NullBool
-		  checked sql.NullTime
-    )
+		var (
+			rec     domainRow
+			class   sql.NullString
+			sec     sql.NullBool
+			checked sql.NullTime
+		)
 		if err := rows.Scan(&rec.Rank, &rec.Name, &class, &sec, &checked); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -96,12 +96,12 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		list = append(list, rec)
 	}
-  
+
 	if err := rows.Err(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-  
+
 	hasNext := len(list) > perPage
 	if hasNext {
 		list = list[:perPage]
@@ -143,8 +143,8 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 			tpl = "rowsMobile"
 		}
 	}
-  
-  err = templates.ExecuteTemplate(w, "index", data)
+
+	err = templates.ExecuteTemplate(w, tpl, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
