@@ -85,7 +85,8 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 ### Web Server & Frontend
 - [x] Implement HTTP server using `net/http`
  - [x] Define route for listing domains and their latest DNSSEC status
- - [ ] Add detail view and filtering
+- [ ] Add detail view and filtering
+- [x] Create a page showing when a domain's status changes
 - [x] Integrate Tailwind CSS workflow (build or CDN)
 - [x] Build minimal HTML templates (no JavaScript)
 - [ ] Come up with a qualitative color scheme (expressed in standard tailwind colors) for classes
@@ -138,6 +139,11 @@ The index view uses Tailwind CSS from the CDN. A grid with four columns shows
 rank, domain, DNSSEC status and the last check time. About fifty rows render per
 page with `page` as a query parameter. Status text is colored green or red. The
 layout is responsive and relies on no JavaScript.
+
+Another view lists moments when the DNSSEC status of a domain changes.
+It shows the domain name, the new state, and both absolute and relative
+timestamps. The history is capped at the most recent two hundred events and
+is linked from the index page.
 
 ## Deprecated Tasks
 

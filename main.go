@@ -81,6 +81,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.Handle("/", indexHandler(db))
+	mux.Handle("/changes", changesHandler(db))
 	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 
 	slog.Info("listening", "addr", address)
