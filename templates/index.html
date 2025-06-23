@@ -54,9 +54,12 @@
                     {{ if .Class }}
                     <span
                         class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ classColor .Class }}"
-                        >{{ .Class }}</span>
+                        >{{ .Class }}</span
+                    >
                     {{ else }}
-                    <span class="ml-2 text-xs text-gray-400">unknown</span>
+                    <span class="ml-2 text-xs text-gray-200">
+                        uncategorized
+                    </span>
                     {{ end }}
                 </p>
                 <p class="text-xs text-gray-500">
@@ -94,7 +97,8 @@
                         {{ if .Class }}
                         <span
                             class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ classColor .Class }}"
-                            >{{ .Class }}</span>
+                            >{{ .Class }}</span
+                        >
                         {{ else }}
                         <span class="ml-2 text-xs text-gray-400">unknown</span>
                         {{ end }}
@@ -112,9 +116,8 @@
                             class="text-xs text-gray-500"
                             title="{{ .CheckedAt }}"
                         >
-                            {{ if .CheckedAt }}
-                            {{ relativeTime .CheckedAtTime }}
-                            {{ end }}
+                            {{ if .CheckedAt }} {{ relativeTime .CheckedAtTime
+                            }} {{ end }}
                         </div>
                     </td>
                 </tr>
