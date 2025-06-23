@@ -25,6 +25,7 @@ var staticFS embed.FS
 var templates = template.Must(
 	template.New("").Funcs(template.FuncMap{
 		"relativeTime": relativeTime,
+		"classColor":   classColor,
 	}).ParseFS(templatesFS, "templates/*.html"),
 )
 
