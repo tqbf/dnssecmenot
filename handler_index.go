@@ -41,6 +41,8 @@ func dnssecRatio(ctx context.Context, db *sql.DB, limit int) (float64, error) {
 
 func indexHandler(db *sql.DB) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hx := r.Header.Get("HX-Request") == "true"
+		trigger := r.Header.Get("HX-Trigger")
 		page := 1
 		if p := r.URL.Query().Get("page"); p != "" {
 			i, err := strconv.Atoi(p)
@@ -140,7 +142,15 @@ func indexHandler(db *sql.DB) http.Handler {
 		if hasNext {
 			data.NextPage = page + 1
 		}
-		err = templates.ExecuteTemplate(w, "index", data)
+		tpl := "index"
+		if hx {
+			if trigger == "more-table" {
+				tpl = "rowsTable"
+			} else if trigger == "more-mobile" {
+				tpl = "rowsMobile"
+			}
+		}
+		err = templates.ExecuteTemplate(w, tpl, data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
