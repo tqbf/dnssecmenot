@@ -68,10 +68,11 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [x] Upsert domain list into SQLite (`domains` table)
 - [x] Figure out how to do this as a migration/fixture process, rather than on every boot.
 - [x] Take the SQLite database path from an env var.
-- [ ] Seed domain classifications from `classes.json` for any matches
-- [ ] Store a `class` field in the `domains` table
-- [ ] Provide a CLI flag that loads classes from a specified JSON file
-- [ ] Provide a CLI flag that lists all unclassed domains
+- [x] Seed domain classifications from `classes.json` for any matches
+- [x] Store a `class` field in the `domains` table
+- [x] Provide a CLI flag that loads classes from a specified JSON file
+- [x] Provide a CLI flag that lists all unclassed domains
+- [ ] Add index on `domains.class` for faster queries
  
 ### DNS Checking
 - [x] Design DB schema: `domains`, `dns_checks` tables

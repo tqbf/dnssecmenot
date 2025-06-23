@@ -1,0 +1,2 @@
+ALTER TABLE domains ADD COLUMN class TEXT;
+

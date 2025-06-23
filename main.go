@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"embed"
+	"encoding/json"
+	"flag"
+	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -24,6 +29,9 @@ var templates = template.Must(
 )
 
 func main() {
+	updatePath := flag.String("update-classes", "", "load classes")
+	listFlag := flag.Bool("list-unclassed", false, "list domains")
+	flag.Parse()
 	h := slog.NewTextHandler(os.Stderr, nil)
 	slog.SetDefault(slog.New(h))
 	db, err := openDB()
@@ -35,6 +43,20 @@ func main() {
 	if err := maybeSeedDomains(db); err != nil {
 		slog.Error("seed", "err", err)
 		os.Exit(1)
+	}
+	if *updatePath != "" {
+		if err := loadClasses(db, *updatePath); err != nil {
+			slog.Error("classes", "err", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if *listFlag {
+		if err := listUnclassed(db, os.Stdout); err != nil {
+			slog.Error("list", "err", err)
+			os.Exit(1)
+		}
+		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -73,4 +95,59 @@ func lookupDS(ctx context.Context, domain string) ([]dns.RR, error) {
 		return nil, err
 	}
 	return r.Answer, nil
+}
+
+func loadClasses(db *sql.DB, path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open json %s: %w", path, err)
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return err
+	}
+	var m map[string][]string
+	if err := json.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	stmt, err := tx.Prepare(
+		"UPDATE domains SET class = ? WHERE name = ?",
+	)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for class, list := range m {
+		for _, name := range list {
+			if _, err := stmt.Exec(class, name); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
+
+func listUnclassed(db *sql.DB, w io.Writer) error {
+	const q = "SELECT name FROM domains " +
+		"WHERE class IS NULL OR class = '' " +
+		"ORDER BY rank"
+	rows, err := db.Query(q)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return err
+		}
+		fmt.Fprintln(w, name)
+	}
+	return rows.Err()
 }
