@@ -173,8 +173,13 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO dns_checks(domain_id, has_dnssec, error)
-                VALUES(?, ?, ?)`,
+               VALUES(?, ?, ?)`,
 		id, has, errStr,
 	)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
 	return err
 }
