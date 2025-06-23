@@ -152,9 +152,10 @@ func loadClasses(db *sql.DB, path string) error {
 
 func listUnclassed(db *sql.DB, w io.Writer) error {
 	const q = `
-		SELECT name FROM domains
-		WHERE class IS NULL OR class = ''
-		ORDER BY rank`
+                SELECT name FROM domains
+                WHERE (class IS NULL OR class = '')
+                AND rank <= 1000
+                ORDER BY rank`
 	rows, err := db.Query(q)
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
