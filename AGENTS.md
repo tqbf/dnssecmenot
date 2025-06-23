@@ -14,3 +14,11 @@
 * be familiar with RESTful API design principles, best practices, and Go idioms
 * use fmt.Fprintf in preference to Write([]byte(stringValue))
 * use StringBuilder or something like it in preference to append/join
+* when possible/sensible, accumulate repetitive errors with errors.Join so we can do a single error check
+* don't create new .go files until there's enough stuff for the file to hold multiple funcs, unless I say otherwise.
+
+### Go Web Apps
+
+* If we need to inject state into handlers, define a server struct to hold the state, don't write middleware for each handler.
+* Do create a .go file for each HTTP handler if the handler does anything significant.
+* NEVER define an inline handler in main or where HandlerFunc() is called. I will lose my shit.

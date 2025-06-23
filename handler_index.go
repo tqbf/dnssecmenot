@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -39,21 +40,20 @@ func dnssecRatio(ctx context.Context, db *sql.DB, limit int) (float64, error) {
 	return 100 * float64(count) / float64(limit), nil
 }
 
-func indexHandler(db *sql.DB) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hx := r.Header.Get("HX-Request") == "true"
-		trigger := r.Header.Get("HX-Trigger")
-		page := 1
-		if p := r.URL.Query().Get("page"); p != "" {
-			i, err := strconv.Atoi(p)
-			if err == nil && i > 0 {
-				page = i
-			}
+func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
+	hx := r.Header.Get("HX-Request") == "true"
+	trigger := r.Header.Get("HX-Trigger")
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		i, err := strconv.Atoi(p)
+		if err == nil && i > 0 {
+			page = i
 		}
-		const perPage = 50
-		offset := (page - 1) * perPage
-		rows, err := db.Query(
-			`SELECT d.rank, d.name, d.class,
+	}
+	const perPage = 50
+	offset := (page - 1) * perPage
+	rows, err := srv.db.Query(
+		`SELECT d.rank, d.name, d.class,
                                c.has_dnssec, c.checked_at
                          FROM domains d
                          LEFT JOIN dns_checks c ON c.id = (
@@ -63,96 +63,89 @@ func indexHandler(db *sql.DB) http.Handler {
                          )
                          ORDER BY d.rank
                          LIMIT ? OFFSET ?`,
-			perPage+1, offset,
+		perPage+1, offset,
+	)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// assemble the page data set
+	list := make([]domainRow, 0, perPage)
+	for rows.Next() {
+		var (
+			rec     domainRow
+			class   sql.NullString
+			sec     sql.NullBool
+			checked sql.NullTime
 		)
-		if err != nil {
+		if err := rows.Scan(&rec.Rank, &rec.Name, &class, &sec, &checked); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer rows.Close()
-		list := make([]domainRow, 0, perPage)
-		for rows.Next() {
-			var rec domainRow
-			var class sql.NullString
-			var sec sql.NullBool
-			var checked sql.NullTime
-			if err := rows.Scan(
-				&rec.Rank,
-				&rec.Name,
-				&class,
-				&sec,
-				&checked,
-			); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			rec.Base, rec.TLD = domainParts(rec.Name)
-			rec.Important = isImportantTLD(rec.TLD)
-			if class.Valid {
-				rec.Class = class.String
-			}
-			rec.HasDNSSEC = sec.Valid && sec.Bool
-			if checked.Valid {
-				rec.CheckedAtTime = checked.Time
-				rec.CheckedAt = checked.Time.Format("2006-01-02 15:04")
-			}
-			list = append(list, rec)
+		rec.Base, rec.TLD = domainParts(rec.Name)
+		rec.Important = isImportantTLD(rec.TLD)
+		if class.Valid {
+			rec.Class = class.String
 		}
-		if err := rows.Err(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		rec.HasDNSSEC = sec.Valid && sec.Bool
+		if checked.Valid {
+			rec.CheckedAtTime = checked.Time
+			rec.CheckedAt = checked.Time.Format("2006-01-02 15:04")
 		}
-		hasNext := len(list) > perPage
-		if hasNext {
-			list = list[:perPage]
+		list = append(list, rec)
+	}
+
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	hasNext := len(list) > perPage
+	if hasNext {
+		list = list[:perPage]
+	}
+	p1000, err1 := dnssecRatio(r.Context(), srv.db, 1000)
+	p500, err2 := dnssecRatio(r.Context(), srv.db, 500)
+	p100, err3 := dnssecRatio(r.Context(), srv.db, 100)
+	if err = errors.Join(err1, err2, err3); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data := struct {
+		Domains  []domainRow
+		PrevPage int
+		NextPage int
+		Page     int
+		Pct1000  float64
+		Pct500   float64
+		Pct100   float64
+	}{
+		Domains: list,
+		Page:    page,
+		Pct1000: p1000,
+		Pct500:  p500,
+		Pct100:  p100,
+	}
+	if page > 1 {
+		data.PrevPage = page - 1
+	}
+	if hasNext {
+		data.NextPage = page + 1
+	}
+
+	tpl := "index"
+	if hx {
+		if trigger == "more-table" {
+			tpl = "rowsTable"
+		} else if trigger == "more-mobile" {
+			tpl = "rowsMobile"
 		}
-		p1000, err := dnssecRatio(r.Context(), db, 1000)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		p500, err := dnssecRatio(r.Context(), db, 500)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		p100, err := dnssecRatio(r.Context(), db, 100)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		data := struct {
-			Domains  []domainRow
-			PrevPage int
-			NextPage int
-			Page     int
-			Pct1000  float64
-			Pct500   float64
-			Pct100   float64
-		}{
-			Domains: list,
-			Page:    page,
-			Pct1000: p1000,
-			Pct500:  p500,
-			Pct100:  p100,
-		}
-		if page > 1 {
-			data.PrevPage = page - 1
-		}
-		if hasNext {
-			data.NextPage = page + 1
-		}
-		tpl := "index"
-		if hx {
-			if trigger == "more-table" {
-				tpl = "rowsTable"
-			} else if trigger == "more-mobile" {
-				tpl = "rowsMobile"
-			}
-		}
-		err = templates.ExecuteTemplate(w, tpl, data)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
+	}
+
+	err = templates.ExecuteTemplate(w, tpl, data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }

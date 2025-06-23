@@ -1,0 +1,39 @@
+{{ define "changes" }}
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>dnssec-me-not: status changes</title>
+        <link href="/static/style.css" rel="stylesheet" />
+    </head>
+    <body class="p-4">
+        <h1 class="text-2xl mb-4">Status Changes</h1>
+        <table class="table w-full text-sm">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-2 py-1 text-left">Domain</th>
+                    <th class="px-2 py-1 text-left">Status</th>
+                    <th class="px-2 py-1 text-left">When</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{ range .Changes }}
+                <tr class="even:bg-gray-50 hover:bg-gray-100">
+                    <td class="px-2 py-1">{{ .Name }}</td>
+                    <td class="px-2 py-1">
+                        {{ if .HasDNSSEC }}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">enabled</span>
+                        {{ else }}
+                        <span class="text-gray-400">disabled</span>
+                        {{ end }}
+                    </td>
+                    <td class="px-2 py-1 text-xs text-gray-500">
+                        {{ .CheckedAt }} ({{ relativeTime .CheckedAtTime }})
+                    </td>
+                </tr>
+                {{ end }}
+            </tbody>
+        </table>
+    </body>
+</html>
+{{ end }}

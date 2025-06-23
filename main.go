@@ -29,6 +29,10 @@ var templates = template.Must(
 	}).ParseFS(templatesFS, "templates/*.html"),
 )
 
+type DNSSECMeNot struct {
+	db *sql.DB
+}
+
 func main() {
 	h := slog.NewTextHandler(os.Stderr, nil)
 	slog.SetDefault(slog.New(h))
@@ -39,7 +43,7 @@ func main() {
 	)
 	flag.Parse()
 
-	db, err := openDB()
+	db, err := openDB( /* really should take the path arg here */ )
 	if err != nil {
 		slog.Error("open db", "err", err)
 		os.Exit(1)
@@ -69,6 +73,10 @@ func main() {
 
 	// nope we're servering
 
+	srv := &DNSSECMeNot{
+		db: db,
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -80,7 +88,8 @@ func main() {
 	address := getEnv("ADDRESS", ":8080")
 
 	mux := http.NewServeMux()
-	mux.Handle("/", indexHandler(db))
+	mux.Handle("/", http.HandlerFunc(srv.handleIndex))
+	mux.Handle("/changes", http.HandlerFunc(srv.handleChanges))
 	mux.Handle("/static/", http.FileServer(http.FS(staticFS)))
 
 	slog.Info("listening", "addr", address)
