@@ -14,6 +14,7 @@ type domainRow struct {
 	Base          string
 	TLD           string
 	Important     bool
+	Class         string
 	HasDNSSEC     bool
 	CheckedAt     string
 	CheckedAtTime time.Time
@@ -50,7 +51,8 @@ func indexHandler(db *sql.DB) http.Handler {
 		const perPage = 50
 		offset := (page - 1) * perPage
 		rows, err := db.Query(
-			`SELECT d.rank, d.name, c.has_dnssec, c.checked_at
+			`SELECT d.rank, d.name, d.class,
+                               c.has_dnssec, c.checked_at
                          FROM domains d
                          LEFT JOIN dns_checks c ON c.id = (
                              SELECT id FROM dns_checks dc
@@ -69,14 +71,24 @@ func indexHandler(db *sql.DB) http.Handler {
 		list := make([]domainRow, 0, perPage)
 		for rows.Next() {
 			var rec domainRow
-			var checked sql.NullTime
+			var class sql.NullString
 			var sec sql.NullBool
-			if err := rows.Scan(&rec.Rank, &rec.Name, &sec, &checked); err != nil {
+			var checked sql.NullTime
+			if err := rows.Scan(
+				&rec.Rank,
+				&rec.Name,
+				&class,
+				&sec,
+				&checked,
+			); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			rec.Base, rec.TLD = domainParts(rec.Name)
 			rec.Important = isImportantTLD(rec.TLD)
+			if class.Valid {
+				rec.Class = class.String
+			}
 			rec.HasDNSSEC = sec.Valid && sec.Bool
 			if checked.Valid {
 				rec.CheckedAtTime = checked.Time

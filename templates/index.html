@@ -51,6 +51,13 @@
                             >.{{ .TLD }}</span
                         >
                     </span>
+                    {{ if .Class }}
+                    <span
+                        class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ classColor .Class }}"
+                        >{{ .Class }}</span>
+                    {{ else }}
+                    <span class="ml-2 text-xs text-gray-400">unknown</span>
+                    {{ end }}
                 </p>
                 <p class="text-xs text-gray-500">
                     {{ if .HasDNSSEC }}
@@ -84,6 +91,13 @@
                             class="{{ if .Important }}text-red-600{{ else }}text-gray-400{{ end }}"
                             >.{{ .TLD }}</span
                         >
+                        {{ if .Class }}
+                        <span
+                            class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ classColor .Class }}"
+                            >{{ .Class }}</span>
+                        {{ else }}
+                        <span class="ml-2 text-xs text-gray-400">unknown</span>
+                        {{ end }}
                     </td>
                     <td class="px-2 py-1">
                         {{ if .HasDNSSEC }}
