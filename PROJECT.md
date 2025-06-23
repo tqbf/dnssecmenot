@@ -68,6 +68,9 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [x] Upsert domain list into SQLite (`domains` table)
 - [x] Figure out how to do this as a migration/fixture process, rather than on every boot.
 - [x] Take the SQLite database path from an env var.
+- [ ] Seed domain classifications from `classes.json` for any matches
+- [ ] Store a `class` field in the `domains` table
+- [ ] Provide a script or migration to update classifications regularly
 
 ### DNS Checking
 - [x] Design DB schema: `domains`, `dns_checks` tables
@@ -83,6 +86,9 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
  - [ ] Add detail view and filtering
 - [x] Integrate Tailwind CSS workflow (build or CDN)
 - [x] Build minimal HTML templates (no JavaScript)
+- [ ] Show the classification next to each domain in the list
+- [ ] Add filtering by classification on the index view
+- [ ] Display a simple chart summarizing counts per class
 
 ### Configuration & Env
 - [x] Add `.env` support for settings (server address)
