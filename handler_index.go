@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// results per page
+const perPage = 50
+
 type domainRow struct {
 	Rank          int
 	Name          string
@@ -44,23 +47,23 @@ func classRatios(ctx context.Context, db *sql.DB) (map[string]float64, error) {
 	rows, err := db.QueryContext(
 		ctx,
 		`SELECT class,
-                        100.0 * SUM(COALESCE(has_dnssec,0)) / COUNT(1) AS pct
-                 FROM (
-                        SELECT d.class,
-                               (
-                                       SELECT c.has_dnssec
-                                       FROM dns_checks c
-                                       WHERE c.domain_id = d.id
-                                       ORDER BY c.checked_at DESC
-                                       LIMIT 1
-                               ) AS has_dnssec
-                        FROM domains d
-                        WHERE d.rank <= 1000
-                        AND d.class IS NOT NULL
-                        AND d.class != ''
-                 )
-                 GROUP BY class
-                 ORDER BY class`,
+                100.0 * SUM(COALESCE(has_dnssec,0)) / COUNT(1) AS pct
+        FROM (
+            SELECT d.class,
+            (
+                SELECT c.has_dnssec
+                FROM dns_checks c
+                WHERE c.domain_id = d.id
+                ORDER BY c.checked_at DESC
+                LIMIT 1
+            ) AS has_dnssec
+            FROM domains d
+            WHERE d.rank <= 1000
+            AND d.class IS NOT NULL
+            AND d.class != ''
+        )
+        GROUP BY class
+        ORDER BY class`,
 	)
 	if err != nil {
 		return nil, err
@@ -93,19 +96,17 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 			page = i
 		}
 	}
-	const perPage = 50
 	offset := (page - 1) * perPage
-	rows, err := srv.db.Query(
-		`SELECT d.rank, d.name, d.class,
-                               c.has_dnssec, c.checked_at
-                         FROM domains d
-                         LEFT JOIN dns_checks c ON c.id = (
-                             SELECT id FROM dns_checks dc
-                             WHERE dc.domain_id = d.id
-                             ORDER BY dc.checked_at DESC LIMIT 1
-                         )
-                         ORDER BY d.rank
-                         LIMIT ? OFFSET ?`,
+	rows, err := srv.db.Query(`
+		SELECT d.rank, d.name, d.class, c.has_dnssec, c.checked_at
+        FROM domains d
+        LEFT JOIN dns_checks c ON c.id = (
+            SELECT id FROM dns_checks dc
+            WHERE dc.domain_id = d.id
+            ORDER BY dc.checked_at DESC LIMIT 1
+        )
+        ORDER BY d.rank
+        LIMIT ? OFFSET ?`,
 		perPage+1, offset,
 	)
 	if err != nil {
