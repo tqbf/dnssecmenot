@@ -40,6 +40,49 @@ func dnssecRatio(ctx context.Context, db *sql.DB, limit int) (float64, error) {
 	return 100 * float64(count) / float64(limit), nil
 }
 
+func classRatios(ctx context.Context, db *sql.DB) (map[string]float64, error) {
+	rows, err := db.QueryContext(
+		ctx,
+		`SELECT class,
+                        100.0 * SUM(COALESCE(has_dnssec,0)) / COUNT(1) AS pct
+                 FROM (
+                        SELECT d.class,
+                               (
+                                       SELECT c.has_dnssec
+                                       FROM dns_checks c
+                                       WHERE c.domain_id = d.id
+                                       ORDER BY c.checked_at DESC
+                                       LIMIT 1
+                               ) AS has_dnssec
+                        FROM domains d
+                        WHERE d.rank <= 1000
+                        AND d.class IS NOT NULL
+                        AND d.class != ''
+                 )
+                 GROUP BY class
+                 ORDER BY class`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	m := make(map[string]float64, 8)
+	for rows.Next() {
+		var (
+			class string
+			pct   float64
+		)
+		if err := rows.Scan(&class, &pct); err != nil {
+			return nil, err
+		}
+		m[class] = pct
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 	hx := r.Header.Get("HX-Request") == "true"
 	trigger := r.Header.Get("HX-Trigger")
@@ -109,24 +152,27 @@ func (srv *DNSSECMeNot) handleIndex(w http.ResponseWriter, r *http.Request) {
 	p1000, err1 := dnssecRatio(r.Context(), srv.db, 1000)
 	p500, err2 := dnssecRatio(r.Context(), srv.db, 500)
 	p100, err3 := dnssecRatio(r.Context(), srv.db, 100)
-	if err = errors.Join(err1, err2, err3); err != nil {
+	classPcts, err4 := classRatios(r.Context(), srv.db)
+	if err = errors.Join(err1, err2, err3, err4); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	data := struct {
-		Domains  []domainRow
-		PrevPage int
-		NextPage int
-		Page     int
-		Pct1000  float64
-		Pct500   float64
-		Pct100   float64
+		Domains   []domainRow
+		PrevPage  int
+		NextPage  int
+		Page      int
+		Pct1000   float64
+		Pct500    float64
+		Pct100    float64
+		ClassPcts map[string]float64
 	}{
-		Domains: list,
-		Page:    page,
-		Pct1000: p1000,
-		Pct500:  p500,
-		Pct100:  p100,
+		Domains:   list,
+		Page:      page,
+		Pct1000:   p1000,
+		Pct500:    p500,
+		Pct100:    p100,
+		ClassPcts: classPcts,
 	}
 	if page > 1 {
 		data.PrevPage = page - 1
