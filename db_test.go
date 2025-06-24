@@ -205,3 +205,42 @@ func TestIndexQueryLatestCheck(t *testing.T) {
 		t.Fatalf("did not find %s", names[0])
 	}
 }
+
+func TestClassRatios(t *testing.T) {
+	db := testDB(t)
+	names := seedDomains(t, db, 3)
+	_, err := db.Exec(
+		"UPDATE domains SET class = 'Tech' WHERE name = ?",
+		names[0],
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(
+		"UPDATE domains SET class = 'Tech' WHERE name = ?",
+		names[1],
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(
+		"UPDATE domains SET class = 'Government' WHERE name = ?",
+		names[2],
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	insertCheck(t, db, names[0], now, true)
+	insertCheck(t, db, names[2], now, true)
+	m, err := classRatios(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := m["Tech"]; v < 49 || v > 51 {
+		t.Fatalf("tech pct %.1f not 50", v)
+	}
+	if v := m["Government"]; v < 99 || v > 101 {
+		t.Fatalf("gov pct %.1f not 100", v)
+	}
+}

@@ -41,6 +41,22 @@
             </div>
         </div>
 
+        <div
+            class="mb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2"
+        >
+            {{ range $class, $pct := .ClassPcts }}
+            <div class="bg-white shadow rounded-lg p-2 text-center">
+                <span
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ classColor $class }}"
+                    >{{ $class }}</span
+                >
+                <div class="mt-1 text-sm font-bold">
+                    {{ printf "%.1f" $pct }}%
+                </div>
+            </div>
+            {{ end }}
+        </div>
+
         <div id="mobile-list" class="sm:hidden space-y-2">
             {{ template "rowsMobile" . }}
         </div>
