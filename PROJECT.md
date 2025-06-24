@@ -73,7 +73,7 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [x] Store a `class` field in the `domains` table
 - [x] Provide a CLI flag that loads classes from a specified JSON file
 - [x] Provide a CLI flag that lists all unclassed domains
-- [ ] Add index on `domains.class` for faster queries
+- [x] Add index on `domains.class` for faster queries
  
 ### DNS Checking
 - [x] Design DB schema: `domains`, `dns_checks` tables
