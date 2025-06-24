@@ -14,6 +14,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/miekg/dns"
@@ -43,6 +44,7 @@ func main() {
 	var (
 		updatePath = flag.String("update-classes", "", "load classes")
 		listFlag   = flag.Bool("list-unclassed", false, "list domains")
+		setClass   = flag.String("set-class", "", "domain,cls")
 	)
 	flag.Parse()
 
@@ -69,6 +71,19 @@ func main() {
 	case *listFlag:
 		if err := listUnclassed(db, os.Stdout); err != nil {
 			slog.Error("list", "err", err)
+			os.Exit(1)
+		}
+		return
+
+	case *setClass != "":
+		parts := strings.SplitN(*setClass, ",", 2)
+		if len(parts) != 2 {
+			slog.Error("bad -set-class value")
+			os.Exit(1)
+		}
+		domain, cls := parts[0], parts[1]
+		if err := updateDomainClass(db, domain, cls); err != nil {
+			slog.Error("set class", "err", err)
 			os.Exit(1)
 		}
 		return
@@ -113,6 +128,18 @@ var resolvers = []string{
 	"8.8.8.8:53",
 	"1.1.1.1:53",
 	"9.9.9.9:53",
+}
+
+var classMap = map[string]string{
+	"tec": "Technology",
+	"ast": "Asia Technology",
+	"fin": "Finance",
+	"gov": "Government",
+	"man": "Manufacturing",
+	"med": "Media",
+	"ngo": "NGO",
+	"ret": "Retail",
+	"tel": "Telecom",
 }
 
 // TODO: put this somewhere more sensible.
@@ -224,4 +251,31 @@ func listUnclassed(db *sql.DB, w io.Writer) error {
 	}
 
 	return rows.Err()
+}
+
+func updateDomainClass(db *sql.DB, domain, code string) error {
+	if len(code) != 3 || strings.ToLower(code) != code {
+		return fmt.Errorf("bad code")
+	}
+	cls, ok := classMap[code]
+	if !ok {
+		return fmt.Errorf("unknown class")
+	}
+	res, err := db.Exec(
+		"UPDATE domains SET class = ? WHERE name = ?",
+		cls,
+		domain,
+	)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("domain not found")
+	}
+	slog.Info("set class", "domain", domain, "class", cls)
+	return nil
 }
