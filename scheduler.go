@@ -123,25 +123,25 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 		lastHas sql.NullBool
 		lastErr sql.NullString
 	)
-	err := db.QueryRowContext(ctx,
-		`SELECT id, has_dnssec, error
-                FROM dns_checks
-                WHERE domain_id = ?
-                ORDER BY checked_at DESC
-                LIMIT 1`,
+	err := db.QueryRowContext(ctx, `
+			SELECT id, has_dnssec, error
+        	FROM dns_checks
+            WHERE domain_id = ?
+            ORDER BY checked_at DESC
+            LIMIT 1`,
 		id,
 	).Scan(&lastID, &lastHas, &lastErr)
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
 
-	records, lerr := lookupDS(ctx, name)
+	records, err := lookupDS(ctx, name)
 	var (
 		has    bool
 		errStr string
 	)
-	if lerr != nil {
-		errStr = lerr.Error()
+	if err != nil {
+		errStr = err.Error()
 		if lastHas.Valid {
 			has = lastHas.Bool
 		}
@@ -158,18 +158,20 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 
 	sameHas := lastHas.Valid && lastHas.Bool == has
 	if sameHas && sameErr {
-		_, err = db.ExecContext(ctx,
-			`UPDATE dns_checks
-         SET checked_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
+		// TODO: missing txn
+		_, err = db.ExecContext(ctx, `
+			UPDATE dns_checks
+        	SET checked_at = CURRENT_TIMESTAMP
+           	WHERE id = ?`,
 			lastID,
 		)
 		return err
 	}
 
-	_, err = db.ExecContext(ctx,
-		`INSERT INTO dns_checks(domain_id, has_dnssec, error)
-               VALUES(?, ?, ?)`,
+	// TODO: missing txn
+	_, err = db.ExecContext(ctx, `
+			INSERT INTO dns_checks(domain_id, has_dnssec, error)
+            VALUES(?, ?, ?)`,
 		id, has, errStr,
 	)
 	if err != nil {

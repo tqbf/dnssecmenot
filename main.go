@@ -14,6 +14,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -114,14 +115,25 @@ var resolvers = []string{
 	"9.9.9.9:53",
 }
 
-func pickResolvers() (string, string) {
-	n := len(resolvers)
-	i := rand.IntN(n)
-	j := rand.IntN(n - 1)
-	if j >= i {
-		j++
+// TODO: put this somewhere more sensible.
+var rng = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0))
+
+func kOfN(k int, set []string) (ret []string) {
+	if k <= 0 {
+		return nil
 	}
-	return resolvers[i], resolvers[j]
+
+	if k > len(set) {
+		k = len(set)
+	}
+
+	idxs := rng.Perm(len(set))
+
+	for i := 0; i < k; i++ {
+		ret = append(ret, set[idxs[i]])
+	}
+
+	return
 }
 
 func lookupDS(ctx context.Context, domain string) ([]dns.RR, error) {
@@ -129,13 +141,13 @@ func lookupDS(ctx context.Context, domain string) ([]dns.RR, error) {
 	m.SetQuestion(dns.Fqdn(domain), dns.TypeDS)
 
 	c := new(dns.Client)
-	r1, r2 := pickResolvers()
+	rs := kOfN(2, resolvers)
 
-	a, _, err1 := c.ExchangeContext(ctx, m, r1)
-	b, _, err2 := c.ExchangeContext(ctx, m, r2)
+	a, _, err1 := c.ExchangeContext(ctx, m, rs[0])
+	b, _, err2 := c.ExchangeContext(ctx, m, rs[1])
 
-	if err1 != nil || err2 != nil {
-		return nil, errors.Join(err1, err2)
+	if err := errors.Join(err1, err2); err != nil {
+		return nil, fmt.Errorf("two lookups: %w", err)
 	}
 
 	pa := len(a.Answer) > 0
