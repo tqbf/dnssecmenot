@@ -5,13 +5,16 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -106,16 +109,56 @@ func getEnv(key, def string) string {
 	return def
 }
 
+var resolvers = []string{
+	"8.8.8.8:53",
+	"1.1.1.1:53",
+	"9.9.9.9:53",
+}
+
+// TODO: put this somewhere more sensible.
+var rng = rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0))
+
+func kOfN(k int, set []string) (ret []string) {
+	if k <= 0 {
+		return nil
+	}
+
+	if k > len(set) {
+		k = len(set)
+	}
+
+	idxs := rng.Perm(len(set))
+
+	for i := 0; i < k; i++ {
+		ret = append(ret, set[idxs[i]])
+	}
+
+	return
+}
+
 func lookupDS(ctx context.Context, domain string) ([]dns.RR, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(domain), dns.TypeDS)
 
 	c := new(dns.Client)
-	r, _, err := c.ExchangeContext(ctx, m, "8.8.8.8:53")
-	if err != nil {
-		return nil, err
+	rs := kOfN(2, resolvers)
+
+	a, _, err1 := c.ExchangeContext(ctx, m, rs[0])
+	b, _, err2 := c.ExchangeContext(ctx, m, rs[1])
+
+	if err := errors.Join(err1, err2); err != nil {
+		return nil, fmt.Errorf("two lookups: %w", err)
 	}
-	return r.Answer, nil
+
+	pa := len(a.Answer) > 0
+	pb := len(b.Answer) > 0
+	if pa != pb {
+		return nil, fmt.Errorf("mismatch")
+	}
+	if !pa {
+		return nil, nil
+	}
+	return a.Answer, nil
 }
 
 func loadClasses(db *sql.DB, path string) error {

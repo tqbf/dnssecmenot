@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 )
 
@@ -111,42 +111,42 @@ func nextDomain(ctx context.Context, db *sql.DB) (int, string, error) {
 	}
 
 	// jitter
-	i := rand.Intn(len(ids))
+	i := rand.IntN(len(ids))
 	return ids[i], names[i], nil
 }
 
 func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
-	var (
-		has    = false
-		errStr = ""
-	)
-
 	slog.Info("checking", "domain", name)
 
-	records, err := lookupDS(ctx, name)
-	if err != nil {
-		errStr = err.Error()
-	} else {
-		has = len(records) > 0
-	}
-
-	// i'm just going to not update
-	// if nothing changes (just update the last check's timestamp)
 	var (
 		lastID  int
 		lastHas sql.NullBool
 		lastErr sql.NullString
 	)
-	err = db.QueryRowContext(ctx,
-		`SELECT id, has_dnssec, error
-                FROM dns_checks
-                WHERE domain_id = ?
-                ORDER BY checked_at DESC
-                LIMIT 1`,
+	err := db.QueryRowContext(ctx, `
+			SELECT id, has_dnssec, error
+        	FROM dns_checks
+            WHERE domain_id = ?
+            ORDER BY checked_at DESC
+            LIMIT 1`,
 		id,
 	).Scan(&lastID, &lastHas, &lastErr)
 	if err != nil && err != sql.ErrNoRows {
 		return err
+	}
+
+	records, err := lookupDS(ctx, name)
+	var (
+		has    bool
+		errStr string
+	)
+	if err != nil {
+		errStr = err.Error()
+		if lastHas.Valid {
+			has = lastHas.Bool
+		}
+	} else {
+		has = len(records) > 0
 	}
 
 	var sameErr bool
@@ -156,24 +156,22 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 		sameErr = errStr == ""
 	}
 
-	sameResult := err == nil &&
-		lastHas.Valid &&
-		lastHas.Bool == has &&
-		sameErr
-
-	if sameResult {
-		_, err = db.ExecContext(ctx,
-			`UPDATE dns_checks
-	 SET checked_at = CURRENT_TIMESTAMP
-	 WHERE id = ?`,
+	sameHas := lastHas.Valid && lastHas.Bool == has
+	if sameHas && sameErr {
+		// TODO: missing txn
+		_, err = db.ExecContext(ctx, `
+			UPDATE dns_checks
+        	SET checked_at = CURRENT_TIMESTAMP
+           	WHERE id = ?`,
 			lastID,
 		)
 		return err
 	}
 
-	_, err = db.ExecContext(ctx,
-		`INSERT INTO dns_checks(domain_id, has_dnssec, error)
-               VALUES(?, ?, ?)`,
+	// TODO: missing txn
+	_, err = db.ExecContext(ctx, `
+			INSERT INTO dns_checks(domain_id, has_dnssec, error)
+            VALUES(?, ?, ?)`,
 		id, has, errStr,
 	)
 	if err != nil {

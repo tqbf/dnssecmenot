@@ -80,8 +80,10 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
  - [ ] Implement rate-limited DS record lookup (using `miekg/dns` + `rate.Limiter`)
  - [x] Randomly select from names in the top list to re-check based on when the last check was.
  - [x] Write background scheduler (ticker) for periodic checks
-- [ ] Handle failures & retries (backoff, logging)
-- [ ] Add a command-line one-time check that updates the whole list interactively.
+ - [ ] Handle failures & retries (backoff, logging)
+ - [x] Ignore error results when computing status changes
+ - [x] Query two random resolvers for DS lookups
+ - [ ] Add a command-line one-time check that updates the whole list interactively.
 
 ### Web Server & Frontend
 - [x] Implement HTTP server using `net/http`
