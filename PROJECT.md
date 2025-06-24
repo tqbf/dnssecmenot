@@ -90,17 +90,17 @@ This document outlines the comprehensive plan for **dnssecme-not**, a Go-based s
 - [x] Create a page showing when a domain's status changes
 - [x] Integrate Tailwind CSS workflow (build or CDN)
 - [x] Build minimal HTML templates (htmx only)
-- [ ] Come up with a qualitative color scheme (expressed in standard tailwind colors) for classes
-- [ ] Show the classification next to each domain in the list
+ - [x] Come up with a qualitative color scheme (expressed in standard tailwind colors) for classes
+ - [x] Show the classification next to each domain in the list
 - [ ] Add filtering by classification on the index view
 - [ ] Display a simple chart summarizing counts per class
 
 ### Configuration & Env
-- [x] Add `.env` support for settings (server address)
+- [ ] Add `.env` support for settings (server address)
 - [x] Create and document sane defaults in the code.
 
 ### Tests & Quality
-- [ ] Unit tests for any actual logic we write (but don't mock DNS or the network)
+- [x] Unit tests for any actual logic we write (but don't mock DNS or the network)
 - [ ] Linting (`golangci-lint`)
 
 ### CI/CD & Deployment
