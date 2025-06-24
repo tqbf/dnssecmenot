@@ -76,13 +76,7 @@ func main() {
 		return
 
 	case *setClass != "":
-		parts := strings.SplitN(*setClass, ",", 2)
-		if len(parts) != 2 {
-			slog.Error("bad -set-class value")
-			os.Exit(1)
-		}
-		domain, cls := parts[0], parts[1]
-		if err := updateDomainClass(db, domain, cls); err != nil {
+		if err := updateDomainClass(db, *setClass); err != nil {
 			slog.Error("set class", "err", err)
 			os.Exit(1)
 		}
@@ -128,18 +122,6 @@ var resolvers = []string{
 	"8.8.8.8:53",
 	"1.1.1.1:53",
 	"9.9.9.9:53",
-}
-
-var classMap = map[string]string{
-	"tec": "Technology",
-	"ast": "Asia Technology",
-	"fin": "Finance",
-	"gov": "Government",
-	"man": "Manufacturing",
-	"med": "Media",
-	"ngo": "NGO",
-	"ret": "Retail",
-	"tel": "Telecom",
 }
 
 // TODO: put this somewhere more sensible.
@@ -253,25 +235,43 @@ func listUnclassed(db *sql.DB, w io.Writer) error {
 	return rows.Err()
 }
 
-func updateDomainClass(db *sql.DB, domain, code string) error {
-	if len(code) != 3 || strings.ToLower(code) != code {
+var classMap = map[string]string{
+	"tec": "Technology",
+	"edu": "Education",
+	"asi": "Asia Technology",
+	"fin": "Finance",
+	"gov": "Government",
+	"man": "Manufacturing",
+	"med": "Media",
+	"ngo": "NGO",
+	"ret": "Retail",
+	"tel": "Telecom",
+}
+
+func updateDomainClass(db *sql.DB, setting string) error {
+	parts := strings.SplitN(setting, ",", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("not in domain,xyz format")
+	}
+	domain, cls := parts[0], parts[1]
+
+	if len(cls) != 3 {
 		return fmt.Errorf("bad code")
 	}
-	cls, ok := classMap[code]
+
+	cls, ok := classMap[strings.ToLower(cls)]
 	if !ok {
 		return fmt.Errorf("unknown class")
 	}
-	res, err := db.Exec(
-		"UPDATE domains SET class = ? WHERE name = ?",
-		cls,
-		domain,
+	res, err := db.Exec("UPDATE domains SET class = ? WHERE name = ?",
+		cls, domain,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("update query: %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return err
+		return fmt.Errorf("read rows: %w", err)
 	}
 	if n == 0 {
 		return fmt.Errorf("domain not found")
