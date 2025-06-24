@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"math/rand"
+	"math/rand/v2"
 	"time"
 )
 
@@ -111,33 +111,19 @@ func nextDomain(ctx context.Context, db *sql.DB) (int, string, error) {
 	}
 
 	// jitter
-	i := rand.Intn(len(ids))
+	i := rand.IntN(len(ids))
 	return ids[i], names[i], nil
 }
 
 func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
-	var (
-		has    = false
-		errStr = ""
-	)
-
 	slog.Info("checking", "domain", name)
 
-	records, err := lookupDS(ctx, name)
-	if err != nil {
-		errStr = err.Error()
-	} else {
-		has = len(records) > 0
-	}
-
-	// i'm just going to not update
-	// if nothing changes (just update the last check's timestamp)
 	var (
 		lastID  int
 		lastHas sql.NullBool
 		lastErr sql.NullString
 	)
-	err = db.QueryRowContext(ctx,
+	err := db.QueryRowContext(ctx,
 		`SELECT id, has_dnssec, error
                 FROM dns_checks
                 WHERE domain_id = ?
@@ -149,6 +135,20 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 		return err
 	}
 
+	records, lerr := lookupDS(ctx, name)
+	var (
+		has    bool
+		errStr string
+	)
+	if lerr != nil {
+		errStr = lerr.Error()
+		if lastHas.Valid {
+			has = lastHas.Bool
+		}
+	} else {
+		has = len(records) > 0
+	}
+
 	var sameErr bool
 	if lastErr.Valid {
 		sameErr = lastErr.String == errStr
@@ -156,16 +156,12 @@ func checkDomain(ctx context.Context, db *sql.DB, id int, name string) error {
 		sameErr = errStr == ""
 	}
 
-	sameResult := err == nil &&
-		lastHas.Valid &&
-		lastHas.Bool == has &&
-		sameErr
-
-	if sameResult {
+	sameHas := lastHas.Valid && lastHas.Bool == has
+	if sameHas && sameErr {
 		_, err = db.ExecContext(ctx,
 			`UPDATE dns_checks
-	 SET checked_at = CURRENT_TIMESTAMP
-	 WHERE id = ?`,
+         SET checked_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
 			lastID,
 		)
 		return err

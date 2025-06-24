@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"os"
 
@@ -106,16 +108,45 @@ func getEnv(key, def string) string {
 	return def
 }
 
+var resolvers = []string{
+	"8.8.8.8:53",
+	"1.1.1.1:53",
+	"9.9.9.9:53",
+}
+
+func pickResolvers() (string, string) {
+	n := len(resolvers)
+	i := rand.IntN(n)
+	j := rand.IntN(n - 1)
+	if j >= i {
+		j++
+	}
+	return resolvers[i], resolvers[j]
+}
+
 func lookupDS(ctx context.Context, domain string) ([]dns.RR, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(domain), dns.TypeDS)
 
 	c := new(dns.Client)
-	r, _, err := c.ExchangeContext(ctx, m, "8.8.8.8:53")
-	if err != nil {
-		return nil, err
+	r1, r2 := pickResolvers()
+
+	a, _, err1 := c.ExchangeContext(ctx, m, r1)
+	b, _, err2 := c.ExchangeContext(ctx, m, r2)
+
+	if err1 != nil || err2 != nil {
+		return nil, errors.Join(err1, err2)
 	}
-	return r.Answer, nil
+
+	pa := len(a.Answer) > 0
+	pb := len(b.Answer) > 0
+	if pa != pb {
+		return nil, fmt.Errorf("mismatch")
+	}
+	if !pa {
+		return nil, nil
+	}
+	return a.Answer, nil
 }
 
 func loadClasses(db *sql.DB, path string) error {
