@@ -14,20 +14,28 @@ type changeRow struct {
 
 func (srv *DNSSECMeNot) handleChanges(w http.ResponseWriter, r *http.Request) {
 	rows, err := srv.db.Query(`
-                       SELECT d.name, c.checked_at, c.has_dnssec
-                       FROM (
-                               SELECT domain_id, checked_at, has_dnssec, error,
-                                      LAG(has_dnssec) OVER (
-                                              PARTITION BY domain_id
-                                              ORDER BY checked_at
-                                      ) AS prev
-                               FROM dns_checks
-                       ) c
-                       JOIN domains d ON d.id = c.domain_id
-                       WHERE (c.error IS NULL OR c.error = '') AND
-                             (c.prev IS NULL OR c.prev != c.has_dnssec)
-                       ORDER BY c.checked_at DESC
-                       LIMIT 200`)
+		WITH
+		-- strip errors out; we'll do something with them later
+		filtered_checks AS (
+    		SELECT *
+      		FROM dns_checks
+        	WHERE error IS NULL OR error = ''
+         ),
+        -- generate rows of name, status, last-status
+        checks_with_lag AS (
+        	SELECT domain_id, checked_at, has_dnssec,
+         	LAG(has_dnssec) OVER (
+            	PARTITION BY domain_id
+             	ORDER BY checked_at
+            ) AS prev
+            FROM filtered_checks
+        )
+        SELECT d.name, c.checked_at, c.has_dnssec
+        FROM checks_with_lag c
+        JOIN domains d ON d.id = c.domain_id
+        WHERE c.prev != c.has_dnssec
+        ORDER BY c.checked_at DESC
+        LIMIT 200`)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
