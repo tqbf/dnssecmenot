@@ -14,6 +14,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/miekg/dns"
@@ -43,6 +44,7 @@ func main() {
 	var (
 		updatePath = flag.String("update-classes", "", "load classes")
 		listFlag   = flag.Bool("list-unclassed", false, "list domains")
+		setClass   = flag.String("set-class", "", "domain,cls")
 	)
 	flag.Parse()
 
@@ -69,6 +71,13 @@ func main() {
 	case *listFlag:
 		if err := listUnclassed(db, os.Stdout); err != nil {
 			slog.Error("list", "err", err)
+			os.Exit(1)
+		}
+		return
+
+	case *setClass != "":
+		if err := updateDomainClass(db, *setClass); err != nil {
+			slog.Error("set class", "err", err)
 			os.Exit(1)
 		}
 		return
@@ -224,4 +233,49 @@ func listUnclassed(db *sql.DB, w io.Writer) error {
 	}
 
 	return rows.Err()
+}
+
+var classMap = map[string]string{
+	"tec": "Technology",
+	"edu": "Education",
+	"asi": "Asia Technology",
+	"fin": "Finance",
+	"gov": "Government",
+	"man": "Manufacturing",
+	"med": "Media",
+	"ngo": "NGO",
+	"ret": "Retail",
+	"tel": "Telecom",
+}
+
+func updateDomainClass(db *sql.DB, setting string) error {
+	parts := strings.SplitN(setting, ",", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("not in domain,xyz format")
+	}
+	domain, cls := parts[0], parts[1]
+
+	if len(cls) != 3 {
+		return fmt.Errorf("bad code")
+	}
+
+	cls, ok := classMap[strings.ToLower(cls)]
+	if !ok {
+		return fmt.Errorf("unknown class")
+	}
+	res, err := db.Exec("UPDATE domains SET class = ? WHERE name = ?",
+		cls, domain,
+	)
+	if err != nil {
+		return fmt.Errorf("update query: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read rows: %w", err)
+	}
+	if n == 0 {
+		return fmt.Errorf("domain not found")
+	}
+	slog.Info("set class", "domain", domain, "class", cls)
+	return nil
 }
